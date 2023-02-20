@@ -1,15 +1,8 @@
 #include <Wire.h>
 #include "Adafruit_VL6180X.h"
-// #include <midi_serialization.h>
-// #include <usbmidi.h>
+
 
 Adafruit_VL6180X vl = Adafruit_VL6180X();
-
-// void sendCC(uint8_t channel, uint8_t control, uint8_t value) {
-// 	USBMIDI.write(0xB0 | (channel & 0xf));
-// 	USBMIDI.write(control & 0x7f);
-// 	USBMIDI.write(value & 0x7f);
-// }
 
 
 void setup() {
@@ -30,6 +23,8 @@ void setup() {
 
 }
 
+
+
 void loop() {
   // float lux = vl.readLux(VL6180X_ALS_GAIN_5);
   // Serial.print("Lux: "); Serial.println(lux);
@@ -44,7 +39,7 @@ void loop() {
   int value = map(range, rangeMin, rangeMax, 0, 127);
   value = constrain(value, midiMin, midiMax);
 
-  // sendCC(0, 0, value);
+  usbMIDI.sendControlChange(0, value, 1); // control, value, channel
 
   Serial.print("Midi value: "); Serial.println(value);
 

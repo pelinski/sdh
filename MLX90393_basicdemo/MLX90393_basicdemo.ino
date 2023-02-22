@@ -15,7 +15,7 @@ void setup(void)
 
   Serial.println("Starting Adafruit MLX90393 Demo");
 
-  if (!sensor.begin_I2C(0x0E)) {          // hardware I2C mode, can pass in address & alt Wire
+  if (!sensor.begin_I2C(0x0C)) {          // hardware I2C mode, can pass in address & alt Wire
   //if (! sensor.begin_SPI(MLX90393_CS)) {  // hardware SPI mode
     Serial.println("No sensor found ... check your wiring?");
     while (1) { delay(10); }

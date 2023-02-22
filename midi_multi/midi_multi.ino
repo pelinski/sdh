@@ -3,22 +3,36 @@
 // >> USB Type >> MIDI
 #define TCAADDR 0x70
 #include "Adafruit_VL6180X.h"
+#include "Adafruit_MLX90393.h"
 #include <Wire.h>
 
 #define midiCh 0
 
 #define vl1Port 0 // north
 #define vl2Port 3 // south
+#define mg1Addr 0x0D
+#define mg2Addr 0x0F
+#define mg3Addr 0x0C
+#define mg4Addr 0x0E
+
+
+#define MLX90393_CS 10
+
 
 Adafruit_VL6180X vl1 = Adafruit_VL6180X();
 Adafruit_VL6180X vl2 = Adafruit_VL6180X();
+Adafruit_MLX90393 mg1 = Adafruit_MLX90393();
+Adafruit_MLX90393 mg2 = Adafruit_MLX90393();
+Adafruit_MLX90393 mg3 = Adafruit_MLX90393();
+Adafruit_MLX90393 mg4 = Adafruit_MLX90393();
+
 
 uint8_t prev_range_vl1 =
     0; // store previous value of vel --> needed for derivates
 uint8_t prev_range_vl2 = 0;
 uint8_t dt = 50; // ms
 
-// calibration
+// calibration vl
 uint8_t range_min = 5;
 uint8_t range_max = 170;
 uint8_t vel_min = 0;
@@ -30,7 +44,8 @@ uint8_t avg_max = range_max;
 
 // lib
 void vlselect(uint8_t i);
-uint8_t vlbegin(Adafruit_VL6180X *vlsensor, uint8_t i);
+uint8_t mgbegin(Adafruit_VL6180X *vlsensor, uint8_t i);
+uint8_t vlbegin(Adafruit_MLX90393 *mgsensor, uint8_t mgAddr);
 uint8_t vlread(Adafruit_VL6180X *vlsensor, uint8_t i);
 uint8_t midi_map(int range, int rangeMin, int rangeMax);
 
@@ -46,12 +61,31 @@ void setup() {
 
   Wire.begin();
 
-  /* Initialise the 1st sensor */
-  if (!vlbegin(&vl1, vl1Port)) {
+  // /* Initialise the 1st sensor */
+  // if (!vlbegin(&vl1, vl1Port)) {
+  //   Serial.println("couldn't intialise vl1");
+  //   return;
+  // }
+  // /* Initialise the 2nd sensor */
+  // if (!vlbegin(&vl2, vl2Port)) {
+  //   Serial.println("couldn't intialise vl2");
+  //   return;
+  // }
+
+  if (!mgbegin(&mg1, mg1Addr)) {          // hardware I2C mode, can pass in address & alt Wire
+    Serial.println("couldn't intialise mg1");
     return;
   }
-  /* Initialise the 2nd sensor */
-  if (!vlbegin(&vl2, vl2Port)) {
+  if(!mgbegin(&mg2, mg2Addr)) {          // hardware I2C mode, can pass in address & alt Wire
+    Serial.println("couldn't intialise mg2");
+    return;
+  }
+    if (!mgbegin(&mg3, mg3Addr)) {          // hardware I2C mode, can pass in address & alt Wire
+    Serial.println("couldn't intialise mg3");
+    return;
+  }
+    if (!mgbegin(&mg4, mg4Addr)) {          // hardware I2C mode, can pass in address & alt Wire
+    Serial.println("couldn't intialise mg3");
     return;
   }
 }
@@ -76,11 +110,20 @@ void loop() {
   uint8_t midi_sign_vel_vl2 = midi_sign(vel_vl2);
 
   // calc
-
   uint8_t diff_vl1vl2 = range_vl1 - range_vl2;
   uint8_t midi_diff_vl1vl2 = midi_map(diff_vl1vl2, diff_min, diff_max);
   float avg_vl1vl2 = (range_vl1 + range_vl2) / 2; // gets cast into int
   uint8_t midi_avg_vl1vl2 = midi_map(avg_vl1vl2, avg_min, avg_max);
+
+  // magnetic
+  float x,y,z;
+    if (mg1.readData(&x, &y, &z)) {
+      Serial.print("X: "); Serial.print(x, 4); Serial.print(" uT\t");
+      Serial.print("Y: "); Serial.print(y, 4); Serial.print(" uT\t");
+      Serial.print("Z: "); Serial.print(z, 4); Serial.println(" uT");
+  } else {
+      Serial.println("Unable to read XYZ data from the sensor.");
+  }
 
   //  // prints
   //  Serial.println("///////");
@@ -120,13 +163,15 @@ void loop() {
   usbMIDI.sendControlChange(3, midi_vel_vl2, midiCh);
   usbMIDI.sendControlChange(4, midi_sign_vel_vl1, midiCh);
   usbMIDI.sendControlChange(5, midi_sign_vel_vl2, midiCh);
-  usbMIDI.sendControlChange(4, midi_diff_vl1vl2, midiCh);
-  usbMIDI.sendControlChange(5, midi_avg_vl1vl2, midiCh);
+  usbMIDI.sendControlChange(6, midi_diff_vl1vl2, midiCh);
+  usbMIDI.sendControlChange(7, midi_avg_vl1vl2, midiCh);
 
   delay(dt);
 }
 
-////lib
+//// >>>> lib <<<<<
+
+// vl
 
 void vlselect(uint8_t i) { // select multiplexer port
   if (i > 3)
@@ -151,6 +196,32 @@ uint8_t vlread(Adafruit_VL6180X *vlsensor, uint8_t i) {
   return vlsensor->readRange();
 }
 
+// magnetic sensors 
+uint8_t mgbegin(Adafruit_MLX90393 *mgsensor, uint8_t mgAddr) {
+
+  if (!mgsensor->begin_I2C(mgAddr)) {
+    return 0;
+  }
+  return 1;
+
+  mgsensor->setGain(MLX90393_GAIN_5X);
+  
+  // Set resolution, per axis
+  mgsensor->setResolution(MLX90393_X, MLX90393_RES_19);
+  mgsensor->setResolution(MLX90393_Y, MLX90393_RES_19);
+  mgsensor->setResolution(MLX90393_Z, MLX90393_RES_19);
+
+  // Set oversampling
+  // mgsensor->setOversampling(MLX90393_OSR_2);
+
+  // Set digital filtering
+  mgsensor->setFilter(MLX90393_FILTER_6);
+
+}
+
+
+
+// midi
 uint8_t midi_map(int value, int range_min, int range_max) {
   uint8_t midi_min = 0;
   uint8_t midi_max = 127;

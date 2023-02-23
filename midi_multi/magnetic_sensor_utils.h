@@ -91,7 +91,6 @@ struct MLX90393_processing {
 		int _z = 0;
 		if(z > 0.0)
 			_z = (int)z;
-		_z = constrain(_z, (int)z_param->min, (int)z_param->max);
 		return midi_map(_z, (int)z_param->min, (int)z_param->max);
 	}
 

@@ -1,6 +1,7 @@
+#pragma once
 #include "Adafruit_VL6180X.h"
+#include <Wire.h>
 #include "midi_utils.h"
-#include "Adafruit_MLX90393.h"
 
 // I2C Multiplexer
 #define TCAADDR 0x70
@@ -8,15 +9,6 @@
 // VL6180X ports (on multiplexer), default address is 0x29
 #define vl1Port 0 // north
 #define vl2Port 3 // south
-
-// MLX90393
-#define mg1Addr 0x0D
-#define mg2Addr 0x0F
-#define mg3Addr 0x0C
-#define mg4Addr 0x0E
-
-#define MLX90393_CS 10
-
 
 struct VL6180X_calibration {
 	uint8_t range[2];
@@ -36,6 +28,7 @@ struct VL6180X_calibration {
 		avg[1] = range[1];
 	};
 };
+
 
 struct VL6180X_processing {
 	uint8_t prev_reading;
@@ -88,17 +81,6 @@ struct VL6180X_processing {
 	}
 };
 
-struct MLX90393_config {
-	enum mlx90393_gain gain_;
-	enum mlx90393_resolution resX_, resY_, resZ_;
-	enum mlx90393_oversampling oversampling_;
-	enum mlx90393_filter filter_;
-
-	MLX90393_config(mlx90393_gain gain = MLX90393_GAIN_5X, mlx90393_resolution resX = MLX90393_RES_19, mlx90393_resolution resY = MLX90393_RES_19, mlx90393_resolution resZ = MLX90393_RES_19,
-			mlx90393_oversampling oversampling = MLX90393_OSR_2, mlx90393_filter filter = MLX90393_FILTER_6) :
-		gain_(gain), resX_(resX), resY_(resY), resZ_(resZ), oversampling_(oversampling), filter_(filter) {}
-};
-
 /* TIME OF FLIGHT SENSORS */
 void vl_select(uint8_t i) { // select multiplexer port
 	if (i > 3)
@@ -122,30 +104,3 @@ uint8_t vl_read(Adafruit_VL6180X *vlsensor, uint8_t i) {
 	vl_select(i);
 	return vlsensor->readRange();
 }
-
-/* MAGNETIC SENSORS */
-uint8_t mg_begin(Adafruit_MLX90393 *mgsensor, uint8_t mgAddr) {
-
-	if (!mgsensor->begin_I2C(mgAddr)) {
-		return 1;
-	}
-	Serial.print("MLX90303 sensor found at address ");Serial.println(mgAddr);
-	return 0;
-}
-
-void mg_config(Adafruit_MLX90393 *mgsensor, MLX90393_config *config) {
-
-	mgsensor->setGain(config->gain_);
-
-	// Set resolution, per axis
-	mgsensor->setResolution(MLX90393_X, config->resX_);
-	mgsensor->setResolution(MLX90393_Y, config->resY_);
-	mgsensor->setResolution(MLX90393_Z, config->resZ_);
-
-	// Set oversampling
-	mgsensor->setOversampling(config->oversampling_);
-
-	// Set digital filtering
-	mgsensor->setFilter(config->filter_);
-}
-
